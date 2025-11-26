@@ -1,0 +1,18 @@
+# npm publish 제외 파일
+.gitignore
+.git/
+node_modules/
+src/
+pnpm-lock.yaml
+pnpm-workspace.yaml
+package-lock.json
+.DS_Store
+dist/**/*.map
+dist/tsconfig.tsbuildinfo
+tsconfig.json
+.vscode
+eslint.config.js
+jest.config.cjs
+.prettierrc
+*.spec.ts
+*.test.ts
