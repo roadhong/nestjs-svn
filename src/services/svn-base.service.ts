@@ -119,8 +119,36 @@ export abstract class SvnBaseService {
   }
 
   /**
+   * Decode HTML entities in a string
+   * First attempts to decode URL encoding, then decodes HTML entities
+   * Handles common HTML entities like &amp;, &lt;, &gt;, &quot;, &#39;
+   */
+  protected decodeHtmlEntities(str: string): string {
+    // First try to decode URL encoding
+    let decoded = str;
+    try {
+      decoded = decodeURIComponent(str);
+    } catch {
+      // If URL decoding fails, use original string
+      decoded = str;
+    }
+
+    // Then decode HTML entities
+    return decoded
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&#x27;/g, "'")
+      .replace(/&#x2F;/g, '/')
+      .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
+      .replace(/&#x([\da-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+  }
+
+  /**
    * Encode URL path segments (only the path part, not the entire URL)
-   * Decodes each segment first to avoid double encoding
+   * Decodes HTML entities and URL encoding first to avoid double encoding
    */
   private encodeUrlPathSegments(url: string): string {
     try {
@@ -129,14 +157,12 @@ export abstract class SvnBaseService {
         if (!segment) {
           return segment;
         }
-        try {
-          const decoded = decodeURIComponent(segment);
+        // decodeHtmlEntities handles both URL decoding and HTML entity decoding
+        const decoded = this.decodeHtmlEntities(segment);
 
-          return encodeURIComponent(decoded);
-        } catch {
-          return encodeURIComponent(segment);
-        }
+        return encodeURIComponent(decoded);
       });
+
       urlObj.pathname = pathSegments.join('/');
 
       return urlObj.toString();
@@ -152,13 +178,10 @@ export abstract class SvnBaseService {
               if (!segment) {
                 return segment;
               }
-              try {
-                const decoded = decodeURIComponent(segment);
+              // decodeHtmlEntities handles both URL decoding and HTML entity decoding
+              const decoded = this.decodeHtmlEntities(segment);
 
-                return encodeURIComponent(decoded);
-              } catch {
-                return encodeURIComponent(segment);
-              }
+              return encodeURIComponent(decoded);
             })
             .join('/');
 

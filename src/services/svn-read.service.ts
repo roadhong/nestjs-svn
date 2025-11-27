@@ -179,7 +179,8 @@ export class SvnReadService extends SvnBaseService {
     const entryMatches = statusContent.matchAll(/<entry[^>]*path="([^"]*)"[^>]*>([\s\S]*?)<\/entry>/g);
 
     for (const match of entryMatches) {
-      const path = match[1];
+      // Decode HTML entities in path (e.g., &amp; -> &)
+      const path = this.decodeHtmlEntities(match[1]);
       const entryContent = match[2];
 
       const wcStatusMatch = entryContent.match(/<wc-status[^>]*item="([^"]*)"[^>]*revision="([^"]*)"[^>]*>([\s\S]*?)<\/wc-status>/);
@@ -209,7 +210,7 @@ export class SvnReadService extends SvnBaseService {
           const dateMatch = commitContent.match(/<date>(.*?)<\/date>/);
 
           if (authorMatch) {
-            lastChangedAuthor = authorMatch[1];
+            lastChangedAuthor = this.decodeHtmlEntities(authorMatch[1]);
           }
           if (dateMatch) {
             lastChangedDate = dateMatch[1];
@@ -229,7 +230,7 @@ export class SvnReadService extends SvnBaseService {
           const dateMatch = reposCommitContent.match(/<date>(.*?)<\/date>/);
 
           if (authorMatch && !lastChangedAuthor) {
-            lastChangedAuthor = authorMatch[1];
+            lastChangedAuthor = this.decodeHtmlEntities(authorMatch[1]);
           }
           if (dateMatch && !lastChangedDate) {
             lastChangedDate = dateMatch[1];
@@ -331,9 +332,9 @@ export class SvnReadService extends SvnBaseService {
 
       const entry: SvnLogEntry = {
         revision,
-        author: authorMatch ? authorMatch[1] : '',
+        author: authorMatch ? this.decodeHtmlEntities(authorMatch[1]) : '',
         date: dateMatch ? dateMatch[1] : '',
-        message: msgMatch ? msgMatch[1] : '',
+        message: msgMatch ? this.decodeHtmlEntities(msgMatch[1]) : '',
       };
 
       if (pathsMatch) {
@@ -345,7 +346,7 @@ export class SvnReadService extends SvnBaseService {
           entry.paths.push({
             action: pathMatch[1],
             kind: pathMatch[2],
-            path: pathMatch[3],
+            path: this.decodeHtmlEntities(pathMatch[3]),
           });
         }
       }
@@ -375,7 +376,9 @@ export class SvnReadService extends SvnBaseService {
       const nameMatch = entryContent.match(/<name>(.*?)<\/name>/);
 
       if (nameMatch) {
-        paths.push(nameMatch[1]);
+        // Decode HTML entities (e.g., &amp; -> &)
+        const decodedName = this.decodeHtmlEntities(nameMatch[1]);
+        paths.push(decodedName);
       }
     }
 

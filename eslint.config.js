@@ -18,7 +18,7 @@ const compat = new FlatCompat({
 });
 
 export default defineConfig([
-  globalIgnores(['**/dist', '**/node_modules', '**/svn-test', '**/svn-test-checkout', 'jest.config.cjs']),
+  globalIgnores(['**/dist', '**/node_modules', '**/svn-test', '**/svn-test-checkout', 'jest.config.cjs', 'eslint.config.js']),
   {
     extends: compat.extends('eslint:recommended', 'plugin:@typescript-eslint/recommended', 'plugin:prettier/recommended', 'plugin:promise/recommended'),
     plugins: {
@@ -30,7 +30,7 @@ export default defineConfig([
     languageOptions: {
       parser: tsParser,
       parserOptions: {
-        project: 'tsconfig.json',
+        project: 'tsconfig.eslint.json',
         tsconfigRootDir: __dirname,
         sourceType: 'module',
       },

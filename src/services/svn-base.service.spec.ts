@@ -39,11 +39,17 @@ describe('SvnBaseService Path Handling', () => {
         { path: 'https://example.com/repo/test/path', options: {}, expected: 'https://example.com/repo/test/path' },
         {
           path: '486_MjölnirJackpot',
-          options: { repositoryUrl: 'https://dug_svn.doubleugames.com/svn_duc_new/Sound' },
-          expected: 'https://dug_svn.doubleugames.com/svn_duc_new/Sound/486_Mj%C3%B6lnirJackpot',
+          options: { repositoryUrl: 'https://example.com/repo/Sound' },
+          expected: 'https://example.com/repo/Sound/486_Mj%C3%B6lnirJackpot',
         },
-        { path: 'https://dug_svn.doubleugames.com/svn_duc_new/Sound/486_MjölnirJackpot', options: {}, expected: 'https://dug_svn.doubleugames.com/svn_duc_new/Sound/486_Mj%C3%B6lnirJackpot' },
+        { path: 'https://example.com/repo/Sound/486_MjölnirJackpot', options: {}, expected: 'https://example.com/repo/Sound/486_Mj%C3%B6lnirJackpot' },
         { path: 'path/with/äöü', options: { repositoryUrl: 'https://example.com/repo' }, expected: 'https://example.com/repo/path/with/%C3%A4%C3%B6%C3%BC' },
+        {
+          path: '330_Mole&amp;More',
+          options: { repositoryUrl: 'https://example.com/repo/Design' },
+          expected: 'https://example.com/repo/Design/330_Mole%26More',
+        },
+        { path: 'https://example.com/repo/Design/330_Mole&amp;More', options: {}, expected: 'https://example.com/repo/Design/330_Mole%26More' },
       ];
 
       testCases.forEach(({ path, options, expected }) => {
