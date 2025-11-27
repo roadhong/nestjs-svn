@@ -42,6 +42,11 @@ export class SvnService {
     this.writeService.setDefaultOptions(options);
   }
 
+  setDebug(debug: boolean): void {
+    this.readService.setDebug(debug);
+    this.writeService.setDebug(debug);
+  }
+
   // ========== Read Operations ==========
 
   /**

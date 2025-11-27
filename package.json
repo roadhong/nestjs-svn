@@ -1,6 +1,6 @@
 {
   "name": "nestjs-svn",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Nestjs SVN Module",
   "scripts": {
     "build": "tsc && rimraf dist/tsconfig.tsbuildinfo",

@@ -48,11 +48,9 @@ export class SvnReadService extends SvnBaseService {
    */
   async info(path?: string, options: SvnOptions = {}): Promise<SvnInfoResult | null> {
     const args = this.buildPathArgs(path);
-    const command = this.buildSvnArgs('info', args, options);
+    const [command, mergedOptions] = this.buildSvnArgs('info', args, options);
 
-    this.logger.debug(`Executing: ${command}`);
-
-    const result = await this.executeCommand(command, options);
+    const result = await this.executeCommand(command, mergedOptions);
 
     if (!result.success) {
       this.logger.warn(`Info command failed: ${result.stderr}`);
@@ -69,11 +67,9 @@ export class SvnReadService extends SvnBaseService {
    */
   async status(path?: string, options: SvnOptions = {}): Promise<SvnStatusResult[]> {
     const args = ['--xml', '--show-updates', ...this.buildPathArgs(path)];
-    const command = this.buildSvnArgs('status', args, options);
+    const [command, mergedOptions] = this.buildSvnArgs('status', args, options);
 
-    this.logger.debug(`Executing: ${command}`);
-
-    const result = await this.executeCommand(command, options);
+    const result = await this.executeCommand(command, mergedOptions);
 
     if (!result.success) {
       this.logger.warn(`Status command failed: ${result.stderr}`);
@@ -90,11 +86,9 @@ export class SvnReadService extends SvnBaseService {
    */
   async log(path?: string, options: SvnLogOptions = {}): Promise<SvnLogEntry[]> {
     const args = ['--xml', ...this.buildLogArgs(options), ...this.buildPathArgs(path)];
-    const command = this.buildSvnArgs('log', args, options);
+    const [command, mergedOptions] = this.buildSvnArgs('log', args, options);
 
-    this.logger.debug(`Executing: ${command}`);
-
-    const result = await this.executeCommand(command, options);
+    const result = await this.executeCommand(command, mergedOptions);
 
     if (!result.success) {
       this.logger.warn(`Log command failed: ${result.stderr}`);
@@ -111,11 +105,9 @@ export class SvnReadService extends SvnBaseService {
    */
   async list(path?: string, options: SvnListOptions = {}): Promise<string[]> {
     const args = ['--xml', ...this.buildListArgs(options), ...this.buildPathArgs(path)];
-    const command = this.buildSvnArgs('list', args, options);
+    const [command, mergedOptions] = this.buildSvnArgs('list', args, options);
 
-    this.logger.debug(`Executing: ${command}`);
-
-    const result = await this.executeCommand(command, options);
+    const result = await this.executeCommand(command, mergedOptions);
 
     if (!result.success) {
       this.handleListError(result.stderr, path, options);
@@ -132,11 +124,9 @@ export class SvnReadService extends SvnBaseService {
    */
   async cat(path: string, options: SvnCatOptions = {}): Promise<string> {
     const args = [...this.buildRevisionArgs(options.revision), path];
-    const command = this.buildSvnArgs('cat', args, options);
+    const [command, mergedOptions] = this.buildSvnArgs('cat', args, options);
 
-    this.logger.debug(`Executing: ${command}`);
-
-    const result = await this.executeCommand(command, options);
+    const result = await this.executeCommand(command, mergedOptions);
 
     return result.stdout;
   }
@@ -147,11 +137,9 @@ export class SvnReadService extends SvnBaseService {
    */
   async diff(path1?: string, path2?: string, options: SvnDiffOptions = {}): Promise<string> {
     const args = [...this.buildDiffRevisionArgs(options), ...this.buildDiffCmdArgs(options.diffCmd), ...this.buildDiffPathArgs(path1, path2, options)];
-    const command = this.buildSvnArgs('diff', args, options);
+    const [command, mergedOptions] = this.buildSvnArgs('diff', args, options);
 
-    this.logger.debug(`Executing: ${command}`);
-
-    const result = await this.executeCommand(command, options);
+    const result = await this.executeCommand(command, mergedOptions);
 
     return result.stdout;
   }
@@ -168,15 +156,12 @@ export class SvnReadService extends SvnBaseService {
       ...this.buildExportPathArgs(sourcePath, destinationPath, options),
     ];
 
-    // destinationPath should not be resolved with repositoryUrl
     const optionsWithoutRepoUrl = { ...options };
     delete optionsWithoutRepoUrl.repositoryUrl;
 
-    const command = this.buildSvnArgs('export', args, optionsWithoutRepoUrl);
+    const [command, mergedOptions] = this.buildSvnArgs('export', args, optionsWithoutRepoUrl);
 
-    this.logger.debug(`Executing: ${command}`);
-
-    return this.executeCommand(command, options);
+    return this.executeCommand(command, mergedOptions);
   }
 
   /**
@@ -197,7 +182,6 @@ export class SvnReadService extends SvnBaseService {
       const path = match[1];
       const entryContent = match[2];
 
-      // Parse wc-status
       const wcStatusMatch = entryContent.match(/<wc-status[^>]*item="([^"]*)"[^>]*revision="([^"]*)"[^>]*>([\s\S]*?)<\/wc-status>/);
       let status = ' ';
       let workingRevision: string | undefined;
@@ -216,7 +200,6 @@ export class SvnReadService extends SvnBaseService {
           workingRevision = revision;
         }
 
-        // Parse commit info from wc-status
         const commitMatch = wcStatusContent.match(/<commit[^>]*revision="([^"]*)"[^>]*>([\s\S]*?)<\/commit>/);
         if (commitMatch) {
           lastChangedRevision = commitMatch[1];
@@ -234,7 +217,6 @@ export class SvnReadService extends SvnBaseService {
         }
       }
 
-      // Parse repos-status (for --show-updates)
       const reposStatusMatch = entryContent.match(/<repos-status[^>]*item="([^"]*)"[^>]*>([\s\S]*?)<\/repos-status>/);
       if (reposStatusMatch) {
         const reposStatusContent = reposStatusMatch[2];
@@ -282,7 +264,6 @@ export class SvnReadService extends SvnBaseService {
       const key = line.substring(0, colonIndex).trim();
       const value = line.substring(colonIndex + 1).trim();
 
-      // Skip empty values
       if (!value) continue;
 
       switch (key) {
@@ -486,8 +467,9 @@ export class SvnReadService extends SvnBaseService {
    */
   private buildDiffPathArgs(path1?: string, path2?: string, options?: SvnOptions): string[] {
     const args: string[] = [];
-    const resolvedPath1 = path1 ? this.resolvePath(path1, options || {}) : undefined;
-    const resolvedPath2 = path2 ? this.resolvePath(path2, options || {}) : undefined;
+    const mergedOptions = options ? this.mergeOptions(options) : {};
+    const resolvedPath1 = path1 ? this.resolvePath(path1, mergedOptions) : undefined;
+    const resolvedPath2 = path2 ? this.resolvePath(path2, mergedOptions) : undefined;
 
     if (resolvedPath1) {
       args.push(resolvedPath1);
@@ -533,7 +515,8 @@ export class SvnReadService extends SvnBaseService {
    */
   private buildExportPathArgs(sourcePath: string, destinationPath: string, options: SvnExportOptions): string[] {
     const args: string[] = [];
-    const resolvedSourcePath = this.resolvePath(sourcePath, options);
+    const mergedOptions = this.mergeOptions(options);
+    const resolvedSourcePath = this.resolvePath(sourcePath, mergedOptions);
 
     if (resolvedSourcePath) {
       args.push(resolvedSourcePath);
@@ -548,7 +531,8 @@ export class SvnReadService extends SvnBaseService {
    * Handle list command errors
    */
   private handleListError(stderr: string, path: string | undefined, options: SvnOptions): void {
-    const resolvedPath = this.resolvePath(path, options);
+    const mergedOptions = this.mergeOptions(options);
+    const resolvedPath = this.resolvePath(path, mergedOptions);
 
     if (stderr.includes('is not a working copy') || stderr.includes('E155007')) {
       this.logger.warn(`List command failed: Path '${resolvedPath || 'current directory'}' is not a working copy. Use a repository URL (e.g., file://, http://) or a working copy path.`);

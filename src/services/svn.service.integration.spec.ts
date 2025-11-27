@@ -35,6 +35,11 @@ describe('SvnService Integration Tests', () => {
 
         try {
           rmSync(testCheckoutPath, { recursive: true, force: true });
+          await new Promise((resolve) => {
+            setTimeout(() => {
+              resolve(true);
+            }, 1000);
+          });
         } catch (error) {
           console.error(`Error removing checkout directory: ${error}`);
         }
@@ -42,6 +47,11 @@ describe('SvnService Integration Tests', () => {
         const parentDir = join(testCheckoutPath, '..');
         try {
           mkdirSync(parentDir, { recursive: true });
+          await new Promise((resolve) => {
+            setTimeout(() => {
+              resolve(true);
+            }, 1000);
+          });
         } catch (error) {
           console.error(`Error creating parent directory: ${error}`);
         }

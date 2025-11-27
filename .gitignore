@@ -54,4 +54,4 @@ shrinkwrap.yaml
 svn-test/
 svn-test-checkout/
 svn-test-export/
-svn-test-checkout-new/
+svn-test-checkout-path-test

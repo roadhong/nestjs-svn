@@ -7,7 +7,7 @@ import { SvnModuleOptions } from './interfaces/svn-module-options.interface';
 @Global()
 @Module({})
 export class SvnModule {
-  static forRoot(options?: SvnModuleOptions): DynamicModule {
+  static forRoot(options?: SvnModuleOptions, debug?: boolean): DynamicModule {
     return {
       module: SvnModule,
       providers: [
@@ -21,6 +21,7 @@ export class SvnModule {
             if (options) {
               service.setDefaultOptions(options);
             }
+            service.setDebug(debug);
 
             return service;
           },
@@ -31,7 +32,7 @@ export class SvnModule {
     };
   }
 
-  static forRootAsync(options: { useFactory: (...args: any[]) => Promise<SvnModuleOptions> | SvnModuleOptions; inject?: any[] }): DynamicModule {
+  static forRootAsync(options: { useFactory: (...args: any[]) => Promise<SvnModuleOptions> | SvnModuleOptions; inject?: any[] }, debug?: boolean): DynamicModule {
     return {
       module: SvnModule,
       providers: [
@@ -46,6 +47,7 @@ export class SvnModule {
             if (moduleOptions) {
               service.setDefaultOptions(moduleOptions);
             }
+            service.setDebug(debug);
 
             return service;
           },

@@ -25,16 +25,12 @@ export class SvnWriteService extends SvnBaseService {
   async checkout(repositoryUrl: string, localPath: string, options: SvnCheckoutOptions = {}): Promise<SvnCommandResult> {
     const args = [...this.buildRevisionArgs(options.revision), ...this.buildDepthArgs(options.depth), repositoryUrl, localPath];
 
-    // Don't pass repositoryUrl to buildSvnArgs for checkout
-    // repositoryUrl and localPath are already complete paths and shouldn't be resolved
     const optionsWithoutRepoUrl = { ...options };
     delete optionsWithoutRepoUrl.repositoryUrl;
 
-    const command = this.buildSvnArgs('checkout', args, optionsWithoutRepoUrl);
+    const [command, mergedOptions] = this.buildSvnArgs('checkout', args, optionsWithoutRepoUrl);
 
-    this.logger.debug(`Executing: ${command}`);
-
-    return this.executeCommand(command, optionsWithoutRepoUrl);
+    return this.executeCommand(command, mergedOptions);
   }
 
   /**
@@ -43,11 +39,9 @@ export class SvnWriteService extends SvnBaseService {
    */
   async update(path?: string, options: SvnUpdateOptions = {}): Promise<SvnCommandResult> {
     const args = [...this.buildRevisionArgs(options.revision), ...this.buildAcceptArgs(options.accept), ...this.buildPathArgs(path)];
-    const command = this.buildSvnArgs('update', args, options);
+    const [command, mergedOptions] = this.buildSvnArgs('update', args, options);
 
-    this.logger.debug(`Executing: ${command}`);
-
-    return this.executeCommand(command, options);
+    return this.executeCommand(command, mergedOptions);
   }
 
   /**
@@ -56,11 +50,9 @@ export class SvnWriteService extends SvnBaseService {
    */
   async commit(message: string, options: Omit<SvnCommitOptions, 'message'> = {}): Promise<SvnCommandResult> {
     const args = ['--message', `"${message}"`, ...this.buildDepthArgs(options.depth), ...this.buildFileArgs(options.files)];
-    const command = this.buildSvnArgs('commit', args, options);
+    const [command, mergedOptions] = this.buildSvnArgs('commit', args, options);
 
-    this.logger.debug(`Executing: ${command}`);
-
-    return this.executeCommand(command, options);
+    return this.executeCommand(command, mergedOptions);
   }
 
   /**
@@ -69,11 +61,9 @@ export class SvnWriteService extends SvnBaseService {
    */
   async add(paths: string[], options: SvnAddOptions = {}): Promise<SvnCommandResult> {
     const args = [...this.buildForceArgs(options.force), ...this.buildNoIgnoreArgs(options.noIgnore), ...paths];
-    const command = this.buildSvnArgs('add', args, options);
+    const [command, mergedOptions] = this.buildSvnArgs('add', args, options);
 
-    this.logger.debug(`Executing: ${command}`);
-
-    return this.executeCommand(command, options);
+    return this.executeCommand(command, mergedOptions);
   }
 
   /**
@@ -82,11 +72,9 @@ export class SvnWriteService extends SvnBaseService {
    */
   async remove(paths: string[], options: SvnRemoveOptions = {}): Promise<SvnCommandResult> {
     const args = [...this.buildForceArgs(options.force), ...this.buildKeepLocalArgs(options.keepLocal), ...paths];
-    const command = this.buildSvnArgs('remove', args, options);
+    const [command, mergedOptions] = this.buildSvnArgs('remove', args, options);
 
-    this.logger.debug(`Executing: ${command}`);
-
-    return this.executeCommand(command, options);
+    return this.executeCommand(command, mergedOptions);
   }
 
   /**
@@ -95,11 +83,9 @@ export class SvnWriteService extends SvnBaseService {
    */
   async copy(sourcePath: string, destinationPath: string, options: SvnCopyOptions = {}): Promise<SvnCommandResult> {
     const args = [...this.buildRevisionArgs(options.revision), ...this.buildMessageArgs(options.message), ...this.buildParentsArgs(options.parents), sourcePath, destinationPath];
-    const command = this.buildSvnArgs('copy', args, options);
+    const [command, mergedOptions] = this.buildSvnArgs('copy', args, options);
 
-    this.logger.debug(`Executing: ${command}`);
-
-    return this.executeCommand(command, options);
+    return this.executeCommand(command, mergedOptions);
   }
 
   /**
@@ -108,11 +94,9 @@ export class SvnWriteService extends SvnBaseService {
    */
   async move(sourcePath: string, destinationPath: string, options: SvnMoveOptions = {}): Promise<SvnCommandResult> {
     const args = [...this.buildMessageArgs(options.message), ...this.buildForceArgs(options.force), ...this.buildParentsArgs(options.parents), sourcePath, destinationPath];
-    const command = this.buildSvnArgs('move', args, options);
+    const [command, mergedOptions] = this.buildSvnArgs('move', args, options);
 
-    this.logger.debug(`Executing: ${command}`);
-
-    return this.executeCommand(command, options);
+    return this.executeCommand(command, mergedOptions);
   }
 
   /**
@@ -121,11 +105,9 @@ export class SvnWriteService extends SvnBaseService {
    */
   async mkdir(paths: string[], options: SvnMkdirOptions = {}): Promise<SvnCommandResult> {
     const args = [...this.buildMessageArgs(options.message), ...this.buildParentsArgs(options.parents), ...paths];
-    const command = this.buildSvnArgs('mkdir', args, options);
+    const [command, mergedOptions] = this.buildSvnArgs('mkdir', args, options);
 
-    this.logger.debug(`Executing: ${command}`);
-
-    return this.executeCommand(command, options);
+    return this.executeCommand(command, mergedOptions);
   }
 
   // ========== Helper Methods ==========
