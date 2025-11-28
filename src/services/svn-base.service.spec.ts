@@ -29,6 +29,100 @@ describe('SvnBaseService Path Handling', () => {
   });
 
   describe('resolvePath and escapeShellArg', () => {
+    describe('Platform-specific escaping', () => {
+      const originalPlatform = process.platform;
+
+      afterEach(() => {
+        Object.defineProperty(process, 'platform', {
+          value: originalPlatform,
+          writable: true,
+          configurable: true,
+        });
+      });
+
+      describe('Unix/Linux/macOS (single quotes)', () => {
+        beforeEach(() => {
+          Object.defineProperty(process, 'platform', {
+            value: 'linux',
+            writable: true,
+            configurable: true,
+          });
+        });
+
+        it('should escape paths with spaces using single quotes', () => {
+          const testCases = [
+            { path: 'path with spaces', expected: "'path with spaces'" },
+            { path: '/path/to/file with spaces.txt', expected: "'/path/to/file with spaces.txt'" },
+          ];
+
+          testCases.forEach(({ path, expected }) => {
+            const result = (readService as any).escapeShellArg(path);
+            expect(result).toBe(expected);
+          });
+        });
+
+        it('should escape paths with single quotes correctly', () => {
+          const testCases = [
+            { path: "Genie's Dream", expected: "'Genie'\\''s Dream'" },
+            { path: "It's a test's path", expected: "'It'\\''s a test'\\''s path'" },
+          ];
+
+          testCases.forEach(({ path, expected }) => {
+            const result = (readService as any).escapeShellArg(path);
+            expect(result).toBe(expected);
+          });
+        });
+      });
+
+      describe('Windows (double quotes)', () => {
+        beforeEach(() => {
+          Object.defineProperty(process, 'platform', {
+            value: 'win32',
+            writable: true,
+            configurable: true,
+          });
+        });
+
+        it('should escape paths with spaces using double quotes', () => {
+          const testCases = [
+            { path: 'path with spaces', expected: '"path with spaces"' },
+            { path: 'C:\\Users\\Name\\file with spaces.txt', expected: '"C:\\Users\\Name\\file with spaces.txt"' },
+          ];
+
+          testCases.forEach(({ path, expected }) => {
+            const result = (readService as any).escapeShellArg(path);
+            expect(result).toBe(expected);
+          });
+        });
+
+        it('should escape paths with double quotes correctly', () => {
+          const testCases = [
+            { path: 'path with "quotes"', expected: '"path with \\"quotes\\""' },
+            // Windows: backslashes before quotes need to be escaped
+            { path: 'C:\\Users\\"Name"\\file.txt', expected: '"C:\\Users\\\\"Name\\"\\file.txt"' },
+          ];
+
+          testCases.forEach(({ path, expected }) => {
+            const result = (readService as any).escapeShellArg(path);
+            expect(result).toBe(expected);
+          });
+        });
+
+        it('should handle Windows paths correctly', () => {
+          const testCases = [
+            { path: 'C:\\Users\\Name\\file.txt', expected: '"C:\\Users\\Name\\file.txt"' },
+            { path: 'C:\\Users\\Name\\file with spaces.txt', expected: '"C:\\Users\\Name\\file with spaces.txt"' },
+            { path: '\\\\server\\share\\file.txt', expected: '"\\\\server\\share\\file.txt"' },
+          ];
+
+          testCases.forEach(({ path, expected }) => {
+            const result = (readService as any).escapeShellArg(path);
+            expect(result).toBe(expected);
+          });
+        });
+      });
+    });
+
     it('should resolve paths correctly', () => {
       const testCases = [
         { path: 'test/path', options: {}, expected: 'test/path' },
@@ -83,13 +177,22 @@ describe('SvnBaseService Path Handling', () => {
     });
 
     it('should escape paths with spaces correctly', () => {
-      const testCases = [
-        { path: 'path with spaces', expected: "'path with spaces'" },
-        { path: 'path  with   multiple    spaces', expected: "'path  with   multiple    spaces'" },
-        { path: ' path with spaces ', expected: "' path with spaces '" },
-        { path: '/path/to/file with spaces.txt', expected: "'/path/to/file with spaces.txt'" },
-        { path: '   ', expected: "'   '" },
-      ];
+      const isWindows = process.platform === 'win32';
+      const testCases = isWindows
+        ? [
+            { path: 'path with spaces', expected: '"path with spaces"' },
+            { path: 'path  with   multiple    spaces', expected: '"path  with   multiple    spaces"' },
+            { path: ' path with spaces ', expected: '" path with spaces "' },
+            { path: '/path/to/file with spaces.txt', expected: '"/path/to/file with spaces.txt"' },
+            { path: '   ', expected: '"   "' },
+          ]
+        : [
+            { path: 'path with spaces', expected: "'path with spaces'" },
+            { path: 'path  with   multiple    spaces', expected: "'path  with   multiple    spaces'" },
+            { path: ' path with spaces ', expected: "' path with spaces '" },
+            { path: '/path/to/file with spaces.txt', expected: "'/path/to/file with spaces.txt'" },
+            { path: '   ', expected: "'   '" },
+          ];
 
       testCases.forEach(({ path, expected }) => {
         const result = (readService as any).escapeShellArg(path);
@@ -98,15 +201,23 @@ describe('SvnBaseService Path Handling', () => {
     });
 
     it('should escape paths with quotes correctly', () => {
-      const testCases = [
-        { path: "Genie's Dream", expected: "'Genie'\\''s Dream'" },
-        { path: "It's a test's path", expected: "'It'\\''s a test'\\''s path'" },
-        { path: "'start with quote", expected: "''\\''start with quote'" },
-        { path: "end with quote'", expected: "'end with quote'\\'''" },
-        { path: "''", expected: "''\\'''\\'''" },
-        { path: "/path/to/file's name.txt", expected: "'/path/to/file'\\''s name.txt'" },
-        { path: "https://example.com/repo/Genie's Dream/Mobile", expected: "'https://example.com/repo/Genie'\\''s Dream/Mobile'" },
-      ];
+      const isWindows = process.platform === 'win32';
+      const testCases = isWindows
+        ? [
+            { path: "Genie's Dream", expected: '"Genie\'s Dream"' },
+            { path: "It's a test's path", expected: '"It\'s a test\'s path"' },
+            { path: 'path with "quotes"', expected: '"path with \\"quotes\\""' },
+            { path: 'C:\\Users\\"Name"\\file.txt', expected: '"C:\\Users\\"Name"\\file.txt"' },
+          ]
+        : [
+            { path: "Genie's Dream", expected: "'Genie'\\''s Dream'" },
+            { path: "It's a test's path", expected: "'It'\\''s a test'\\''s path'" },
+            { path: "'start with quote", expected: "''\\''start with quote'" },
+            { path: "end with quote'", expected: "'end with quote'\\'''" },
+            { path: "''", expected: "''\\'''\\'''" },
+            { path: "/path/to/file's name.txt", expected: "'/path/to/file'\\''s name.txt'" },
+            { path: "https://example.com/repo/Genie's Dream/Mobile", expected: "'https://example.com/repo/Genie'\\''s Dream/Mobile'" },
+          ];
 
       testCases.forEach(({ path, expected }) => {
         const result = (readService as any).escapeShellArg(path);
@@ -115,10 +226,17 @@ describe('SvnBaseService Path Handling', () => {
     });
 
     it('should escape file paths with special characters correctly', () => {
-      const testCases = [
-        { path: '/path/to/file(name).txt', expected: "'/path/to/file(name).txt'" },
-        { path: 'C:\\Users\\Name\\file.txt', expected: "'C:\\Users\\Name\\file.txt'" },
-      ];
+      const isWindows = process.platform === 'win32';
+      const testCases = isWindows
+        ? [
+            { path: '/path/to/file(name).txt', expected: '"/path/to/file(name).txt"' },
+            { path: 'C:\\Users\\Name\\file.txt', expected: 'C:\\Users\\Name\\file.txt' },
+            { path: 'C:\\Users\\Name\\file(name).txt', expected: '"C:\\Users\\Name\\file(name).txt"' },
+          ]
+        : [
+            { path: '/path/to/file(name).txt', expected: "'/path/to/file(name).txt'" },
+            { path: 'C:\\Users\\Name\\file.txt', expected: "'C:\\Users\\Name\\file.txt'" },
+          ];
 
       testCases.forEach(({ path, expected }) => {
         const result = (readService as any).escapeShellArg(path);
@@ -127,21 +245,23 @@ describe('SvnBaseService Path Handling', () => {
     });
 
     it('should escape paths with special characters correctly', () => {
+      const isWindows = process.platform === 'win32';
+      const quote = isWindows ? '"' : "'";
       const testCases = [
-        { path: 'path & special', expected: "'path & special'" },
-        { path: 'path!special', expected: "'path!special'" },
-        { path: 'path (with) parentheses', expected: "'path (with) parentheses'" },
-        { path: 'path [with] brackets', expected: "'path [with] brackets'" },
-        { path: 'path {with} braces', expected: "'path {with} braces'" },
-        { path: 'path*with*asterisk', expected: "'path*with*asterisk'" },
-        { path: 'path?with?question', expected: "'path?with?question'" },
-        { path: 'path#with#hash', expected: "'path#with#hash'" },
-        { path: 'path+with+plus', expected: "'path+with+plus'" },
-        { path: 'path|with|pipe', expected: "'path|with|pipe'" },
-        { path: 'path;with;semicolon', expected: "'path;with;semicolon'" },
-        { path: 'path`with`backtick', expected: "'path`with`backtick'" },
-        { path: 'path$with$dollar', expected: "'path$with$dollar'" },
-        { path: 'path~with~tilde', expected: "'path~with~tilde'" },
+        { path: 'path & special', expected: `${quote}path & special${quote}` },
+        { path: 'path!special', expected: `${quote}path!special${quote}` },
+        { path: 'path (with) parentheses', expected: `${quote}path (with) parentheses${quote}` },
+        { path: 'path [with] brackets', expected: `${quote}path [with] brackets${quote}` },
+        { path: 'path {with} braces', expected: `${quote}path {with} braces${quote}` },
+        { path: 'path*with*asterisk', expected: `${quote}path*with*asterisk${quote}` },
+        { path: 'path?with?question', expected: `${quote}path?with?question${quote}` },
+        { path: 'path#with#hash', expected: `${quote}path#with#hash${quote}` },
+        { path: 'path+with+plus', expected: `${quote}path+with+plus${quote}` },
+        { path: 'path|with|pipe', expected: `${quote}path|with|pipe${quote}` },
+        { path: 'path;with;semicolon', expected: `${quote}path;with;semicolon${quote}` },
+        { path: 'path`with`backtick', expected: `${quote}path\`with\`backtick${quote}` },
+        { path: 'path$with$dollar', expected: `${quote}path$with$dollar${quote}` },
+        { path: 'path~with~tilde', expected: `${quote}path~with~tilde${quote}` },
       ];
 
       testCases.forEach(({ path, expected }) => {
@@ -151,7 +271,9 @@ describe('SvnBaseService Path Handling', () => {
     });
 
     it('should escape URLs with special characters correctly', () => {
-      const testCases = [{ path: 'https://example.com/path?param=value', expected: "'https://example.com/path?param=value'" }];
+      const isWindows = process.platform === 'win32';
+      const quote = isWindows ? '"' : "'";
+      const testCases = [{ path: 'https://example.com/path?param=value', expected: `${quote}https://example.com/path?param=value${quote}` }];
 
       testCases.forEach(({ path, expected }) => {
         const result = (readService as any).escapeShellArg(path);
@@ -160,15 +282,17 @@ describe('SvnBaseService Path Handling', () => {
     });
 
     it('should escape paths with unicode characters correctly', () => {
+      const isWindows = process.platform === 'win32';
+      const quote = isWindows ? '"' : "'";
       const testCases = [
-        { path: '한글/경로/파일.txt', expected: "'한글/경로/파일.txt'" },
-        { path: '中文/路径/文件.txt', expected: "'中文/路径/文件.txt'" },
-        { path: '日本語/パス/ファイル.txt', expected: "'日本語/パス/ファイル.txt'" },
-        { path: 'path/with/😀/emoji', expected: "'path/with/😀/emoji'" },
-        { path: '86_MjölnirJackpot', expected: "'86_MjölnirJackpot'" },
-        { path: 'path/with/äöü', expected: "'path/with/äöü'" },
-        { path: 'Åland/Islands', expected: "'Åland/Islands'" },
-        { path: 'Café/München', expected: "'Café/München'" },
+        { path: '한글/경로/파일.txt', expected: `${quote}한글/경로/파일.txt${quote}` },
+        { path: '中文/路径/文件.txt', expected: `${quote}中文/路径/文件.txt${quote}` },
+        { path: '日本語/パス/ファイル.txt', expected: `${quote}日本語/パス/ファイル.txt${quote}` },
+        { path: 'path/with/😀/emoji', expected: `${quote}path/with/😀/emoji${quote}` },
+        { path: '86_MjölnirJackpot', expected: `${quote}86_MjölnirJackpot${quote}` },
+        { path: 'path/with/äöü', expected: `${quote}path/with/äöü${quote}` },
+        { path: 'Åland/Islands', expected: `${quote}Åland/Islands${quote}` },
+        { path: 'Café/München', expected: `${quote}Café/München${quote}` },
       ];
 
       testCases.forEach(({ path, expected }) => {
@@ -178,9 +302,11 @@ describe('SvnBaseService Path Handling', () => {
     });
 
     it('should escape edge case paths correctly', () => {
+      const isWindows = process.platform === 'win32';
+      const quote = isWindows ? '"' : "'";
       const testCases = [
-        { path: 'path\nwith\nnewline', expected: "'path\nwith\nnewline'" },
-        { path: 'path\twith\ttab', expected: "'path\twith\ttab'" },
+        { path: 'path\nwith\nnewline', expected: `${quote}path\nwith\nnewline${quote}` },
+        { path: 'path\twith\ttab', expected: `${quote}path\twith\ttab${quote}` },
       ];
 
       testCases.forEach(({ path, expected }) => {
@@ -193,40 +319,63 @@ describe('SvnBaseService Path Handling', () => {
   describe('buildSvnArgs with path arrays', () => {
     describe('single path', () => {
       it('should escape path with spaces in command', () => {
+        const isWindows = process.platform === 'win32';
+        const quote = isWindows ? '"' : "'";
         const [command] = (readService as any).buildSvnArgs('list', ['path with spaces'], {});
-        expect(command).toContain("'path with spaces'");
+        expect(command).toContain(`${quote}path with spaces${quote}`);
       });
 
-      it('should escape path with single quotes in command', () => {
+      it('should escape path with quotes in command', () => {
+        const isWindows = process.platform === 'win32';
         const [command] = (readService as any).buildSvnArgs('list', ["Genie's Dream"], {});
-        expect(command).toContain("'Genie'\\''s Dream'");
+        if (isWindows) {
+          expect(command).toContain('"Genie\'s Dream"');
+        } else {
+          expect(command).toContain("'Genie'\\''s Dream'");
+        }
       });
 
       it('should escape URL with special characters', () => {
+        const isWindows = process.platform === 'win32';
+        const quote = isWindows ? '"' : "'";
         const url = "https://example.com/repo/Genie's Dream/Mobile";
         const [command] = (readService as any).buildSvnArgs('list', [url], {});
-        expect(command).toContain("'https://example.com/repo/Genie'\\''s%20Dream/Mobile'");
+        if (isWindows) {
+          expect(command).toContain('"https://example.com/repo/Genie\'s%20Dream/Mobile"');
+        } else {
+          expect(command).toContain("'https://example.com/repo/Genie'\\''s%20Dream/Mobile'");
+        }
       });
 
       it('should handle file path with spaces', () => {
+        const isWindows = process.platform === 'win32';
+        const quote = isWindows ? '"' : "'";
         const path = '/path/to/file with spaces.txt';
         const [command] = (readService as any).buildSvnArgs('cat', [path], {});
-        expect(command).toContain("'/path/to/file with spaces.txt'");
+        expect(command).toContain(`${quote}/path/to/file with spaces.txt${quote}`);
       });
 
       it('should handle Korean path', () => {
+        const isWindows = process.platform === 'win32';
+        const quote = isWindows ? '"' : "'";
         const path = '한글/경로/파일.txt';
         const [command] = (readService as any).buildSvnArgs('list', [path], {});
-        expect(command).toContain(`'${path}'`);
+        expect(command).toContain(`${quote}${path}${quote}`);
       });
     });
 
     describe('multiple paths', () => {
       it('should handle multiple paths with special characters', () => {
+        const isWindows = process.platform === 'win32';
+        const quote = isWindows ? '"' : "'";
         const paths = ['path with spaces', "another'path"];
         const [command] = (readService as any).buildSvnArgs('diff', paths, {});
-        expect(command).toContain("'path with spaces'");
-        expect(command).toContain("'another'\\''path'");
+        expect(command).toContain(`${quote}path with spaces${quote}`);
+        if (isWindows) {
+          expect(command).toContain('"another\'path"');
+        } else {
+          expect(command).toContain("'another'\\''path'");
+        }
       });
 
       it('should handle multiple file paths', () => {
@@ -335,7 +484,8 @@ describe('SvnBaseService Path Handling', () => {
         const paths = ['/absolute/path/to/file.txt', './relative/path/to/file.txt', 'simple-file.txt', "file'with'quotes.txt"];
         const [command] = (readService as any).buildSvnArgs('add', paths, {});
         expect(command).toContain('/absolute/path/to/file.txt');
-        expect(command).toContain('./relative/path/to/file.txt');
+        // path.normalize() removes ./ prefix, so check for normalized path
+        expect(command).toContain('relative/path/to/file.txt');
         expect(command).toContain('simple-file.txt');
         expect(command).toContain("'file'\\''with'\\''quotes.txt'");
       });

@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import * as path from 'path';
 import type { SvnOptions, SvnCommandResult } from '../interfaces/svn-options.interface';
 import type { SvnModuleOptions } from '../interfaces/svn-module-options.interface';
 
@@ -82,8 +83,22 @@ export abstract class SvnBaseService {
   private buildEnvironment(options: SvnOptions): NodeJS.ProcessEnv {
     const env = { ...process.env };
 
-    env.LANG = COMMAND_CONSTANTS.LOCALE_EN;
-    env.LC_ALL = COMMAND_CONSTANTS.LOCALE_EN;
+    // Set locale environment variables for English output
+    // Unix/Linux: LANG and LC_ALL are standard
+    // Windows: Some tools may respect LC_MESSAGES or LC_ALL, but behavior varies
+    // SVN on Windows typically uses system locale, but setting these may help in some cases
+    if (process.platform === 'win32') {
+      // Windows: Try LC_MESSAGES and LC_ALL (may not work for all tools)
+      // Some Windows builds of SVN may respect these variables
+      env.LC_MESSAGES = COMMAND_CONSTANTS.LOCALE_EN;
+      env.LC_ALL = COMMAND_CONSTANTS.LOCALE_EN;
+      // LANG is not standard on Windows, but some tools may check it
+      env.LANG = COMMAND_CONSTANTS.LOCALE_EN;
+    } else {
+      // Unix/Linux/macOS: Standard locale variables
+      env.LANG = COMMAND_CONSTANTS.LOCALE_EN;
+      env.LC_ALL = COMMAND_CONSTANTS.LOCALE_EN;
+    }
 
     if (options.username) {
       env.SVN_USERNAME = options.username;
@@ -149,11 +164,13 @@ export abstract class SvnBaseService {
   /**
    * Encode URL path segments (only the path part, not the entire URL)
    * Decodes HTML entities and URL encoding first to avoid double encoding
+   * Uses path.posix for URL path manipulation (URLs always use POSIX-style separators)
    */
   private encodeUrlPathSegments(url: string): string {
     try {
       const urlObj = new URL(url);
-      const pathSegments = urlObj.pathname.split('/').map((segment) => {
+      // Use POSIX path operations for URL pathname
+      const pathSegments = urlObj.pathname.split(path.posix.sep).map((segment) => {
         if (!segment) {
           return segment;
         }
@@ -163,17 +180,19 @@ export abstract class SvnBaseService {
         return encodeURIComponent(decoded);
       });
 
-      urlObj.pathname = pathSegments.join('/');
+      // Join using POSIX separator
+      urlObj.pathname = pathSegments.join(path.posix.sep);
 
       return urlObj.toString();
     } catch {
       // If URL parsing fails, try to encode path segments manually
       const match = url.match(/^([^/]+:\/\/[^/]+)(\/.*)?$/);
       if (match) {
-        const [, base, path] = match;
-        if (path) {
-          const encodedPath = path
-            .split('/')
+        const [, base, urlPath] = match;
+        if (urlPath) {
+          // Use POSIX path operations for URL paths
+          const encodedPath = urlPath
+            .split(path.posix.sep)
             .map((segment) => {
               if (!segment) {
                 return segment;
@@ -183,7 +202,7 @@ export abstract class SvnBaseService {
 
               return encodeURIComponent(decoded);
             })
-            .join('/');
+            .join(path.posix.sep);
 
           return `${base}${encodedPath}`;
         }
@@ -205,31 +224,50 @@ export abstract class SvnBaseService {
   /**
    * Resolve path with repositoryUrl option
    * If repositoryUrl is provided, path is always treated as a relative path within repositoryUrl
+   * Uses path.posix for URL paths (SVN URLs always use POSIX-style separators)
    */
-  protected resolvePath(path: string | undefined, options: SvnOptions): string | undefined {
-    if (!path) {
-      return path;
+  protected resolvePath(pathStr: string | undefined, options: SvnOptions): string | undefined {
+    if (!pathStr) {
+      return pathStr;
     }
 
     if (options.repositoryUrl) {
+      // Remove trailing slash from base URL
       const baseUrl = options.repositoryUrl.replace(/\/$/, '');
 
-      if (path === './' || path === '.' || path === '/') {
+      // Handle root paths
+      if (pathStr === './' || pathStr === '.' || pathStr === '/') {
         return baseUrl;
       }
 
-      const relativePath = path.replace(/^\.\//, '').replace(/^\//, '');
-      const fullUrl = `${baseUrl}/${relativePath}`;
+      // Normalize relative path using POSIX path (URLs always use /)
+      // Remove leading ./ or /
+      let relativePath = pathStr.replace(/^\.\//, '').replace(/^\//, '');
+
+      // Normalize path segments using POSIX path.normalize to handle .. and .
+      // This ensures proper handling of parent directory references
+      relativePath = path.posix.normalize(relativePath);
+
+      // Join base URL with relative path
+      // Use POSIX separator for URL paths (always /)
+      const fullUrl = `${baseUrl}/${relativePath}`.replace(/\/+/g, '/');
 
       return this.encodeUrlPathSegments(fullUrl);
     }
 
     // If path is already a URL, encode its path segments
-    if (this.isUrl(path)) {
-      return this.encodeUrlPathSegments(path);
+    if (this.isUrl(pathStr)) {
+      return this.encodeUrlPathSegments(pathStr);
     }
 
-    return path;
+    // For local file paths, normalize using platform-specific path
+    // But preserve relative paths (don't resolve to absolute)
+    if (path.isAbsolute(pathStr)) {
+      return path.normalize(pathStr);
+    }
+
+    // Normalize relative paths
+    return path.normalize(pathStr);
   }
 
   /**
@@ -252,18 +290,26 @@ export abstract class SvnBaseService {
 
   /**
    * Escape shell argument to handle special characters safely
-   * Wraps path in single quotes and escapes single quotes within
+   * Uses platform-specific escaping: single quotes for Unix/Linux, double quotes for Windows
    */
   private escapeShellArg(arg: string): string {
     if (!arg) {
       return arg;
     }
 
+    // Simple arguments don't need escaping
     if (!/[^\w\-./:=@%]/.test(arg)) {
       return arg;
     }
 
-    return `'${arg.replace(/'/g, "'\\''")}'`;
+    // Windows uses double quotes, Unix/Linux uses single quotes
+    if (process.platform === 'win32') {
+      // Windows: escape double quotes and wrap in double quotes
+      return `"${arg.replace(/"/g, '\\"')}"`;
+    } else {
+      // Unix/Linux: escape single quotes and wrap in single quotes
+      return `'${arg.replace(/'/g, "'\\''")}'`;
+    }
   }
 
   /**

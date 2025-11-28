@@ -12,6 +12,35 @@ You can verify SVN installation by running:
 svn --version
 ```
 
+### Platform Support
+
+This module supports Windows, macOS, and Linux. The module automatically handles platform-specific differences in shell command execution and environment variables.
+
+- **Windows**: Uses double quotes for argument escaping (compatible with `cmd.exe`)
+- **Unix/Linux/macOS**: Uses single quotes for argument escaping (compatible with `sh`/`bash`)
+
+#### ⚠️ Windows Compatibility Notice
+
+**Windows environment has not been fully tested in real-world scenarios.**
+
+Current Windows compatibility implementation status:
+
+- Windows platform detection and path handling logic implemented
+- Windows shell escaping (double quotes) implemented
+- Logic validation completed through unit tests
+
+**However, the following have not been verified in actual Windows environments:**
+
+- Actual SVN command execution on Windows
+- Various Windows shell environments (PowerShell, Git Bash, etc.)
+- Real Windows path handling and UNC paths
+- Windows environment variable configuration behavior
+
+**Recommendations:**
+
+- Please report issues if you encounter problems when using this module on Windows
+- We welcome feedback from testing in actual Windows environments
+
 ## Installation
 
 ```bash

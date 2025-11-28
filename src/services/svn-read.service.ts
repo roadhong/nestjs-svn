@@ -148,13 +148,8 @@ export class SvnReadService extends SvnBaseService {
    * SVN Export
    * Export files from repository to local directory without creating working copy
    */
-  async export(sourcePath: string, destinationPath: string, options: SvnExportOptions = {}): Promise<SvnCommandResult> {
-    const args = [
-      ...this.buildRevisionArgs(options.revision),
-      ...this.buildDepthArgs(options.depth),
-      ...this.buildExportFlags(options),
-      ...this.buildExportPathArgs(sourcePath, destinationPath, options),
-    ];
+  async export(sourcePath: string, localPath: string, options: SvnExportOptions = {}): Promise<SvnCommandResult> {
+    const args = [...this.buildRevisionArgs(options.revision), ...this.buildDepthArgs(options.depth), ...this.buildExportFlags(options), ...this.buildExportPathArgs(sourcePath, localPath, options)];
 
     const optionsWithoutRepoUrl = { ...options };
     delete optionsWithoutRepoUrl.repositoryUrl;

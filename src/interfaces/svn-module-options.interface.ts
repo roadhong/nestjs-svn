@@ -28,9 +28,4 @@ export interface SvnModuleOptions {
    * Disable authentication cache
    */
   noAuthCache?: boolean;
-
-  /**
-   * Debug mode (default: false)
-   */
-  debug?: boolean;
 }
